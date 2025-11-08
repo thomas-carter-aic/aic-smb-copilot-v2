@@ -1,8 +1,21 @@
-# AIC SMB Copilot
+# aic-smb-copilot-v2
 
-> AI-powered copilot platform for Small and Medium Businesses
+> **AI-powered SMB Copilot** — The modern, cloud-agnostic, enterprise-grade AI platform that empowers small and medium-sized businesses, designed to deliver custom insights, workflow automation, and conversational intelligence powered by large language models (LLMs).
 
-This is a monorepo with multiple applications and services. Let me analyze the structure:
+---
+
+## 🧭 Table of Contents
+
+- [Overview](#-overview)
+- [Repository Structure](#-repository-structure)
+- [Key Features](#-key-features)
+- [Quick Start](#-quick-start)
+- [Development](#-development)
+- [Documentation](#-documentation)
+- [Tech Stack](#-tech-stack)
+- [License](#-license)
+
+---
 
 ## Main Apps:
 
@@ -62,12 +75,19 @@ This is a complete microservices architecture with:
 [![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-green.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 
+---
+
 ## 🎯 Overview
 
-AIC SMB Copilot is an enterprise-grade AI-powered platform designed to help small and medium businesses automate workflows, integrate with existing tools, and leverage AI capabilities without extensive technical expertise.
+AIC SMB Copilot is a modular enterprise-grade AI platform designed to help small and medium businesses automate workflows, integrate with existing tools, and leverage AI capabilities without extensive technical expertise; a modular, cloud-agnostic, multi-tenant platform delivering intelligent AI copilots to small and mid-sized businesses. It integrates business data, LLM-powered workflows, and user interactions to deliver operational efficiency and decision support for SMBs. Designed with cloud portability, security, and developer experience in mind. It offers:
 
 ## ✨ Features
 
+- 🔒 **Secure, tenant-isolated backend APIs**
+- 🎯 **LLM-powered workflows and automation**
+- 📊 **Integration with existing business data sources**
+- 🧠 **Knowledge management via vectorized retrieval**
+- 🚀 **Deployable to AWS (default), with support for other clouds**
 - 🤖 **AI-Powered Document Processing** - Intelligent document analysis and automation
 - 🔄 **Workflow Automation** - Visual workflow builder with Temporal.io
 - 🔌 **Seamless Integrations** - Connect with Slack, Google Workspace, Microsoft 365, and more
@@ -75,6 +95,13 @@ AIC SMB Copilot is an enterprise-grade AI-powered platform designed to help smal
 - 📱 **Cross-Platform** - Web, mobile (iOS/Android), and CLI interfaces
 - 🔐 **Enterprise Security** - SOC 2 compliant with role-based access control
 - 💰 **Flexible Billing** - Usage-based pricing with multiple tiers
+- AI Copilot engine powered by pluggable LLM providers
+- Multi-tenant RBAC-enabled API gateway
+- Vector database-powered RAG with Qdrant
+- Observability with full tracing, metrics, and logs
+- Devcontainer-powered rapid setup for contributors
+
+---
 
 ## 🏗️ Architecture
 
@@ -87,7 +114,11 @@ This is a monorepo built with:
 - **Workflow**: Temporal.io
 - **Monitoring**: Prometheus, Grafana, Datadog, Sentry
 
-### Project Structure
+---
+
+## 🧱 Repository Structure
+
+A high-level view of the project's directory layout:
 
 ```
 aic-smb-copilot/
@@ -138,7 +169,31 @@ aic-smb-copilot/
     └── testing/            # Testing scripts
 ```
 
+*(Full tree available in [`tree.md`](./tree.md))*
+
+
 ## 🚀 Quick Start
+
+## 🛠️ Quick Start (Local)
+
+```bash
+# Clone the repo
+git clone https://github.com/thomas-carter-aic/aic-smb-copilot-v2.git
+
+cd aic-smb-copilot-v2
+
+# Copy environment example
+cp .env.example .env
+
+# Start local environment (dev services (API, Web, DBs, etc.))
+docker compose up --build
+
+Access the app:
+
+* Frontend: [http://localhost:3000](http://localhost:3000)
+* API: [http://localhost:8080](http://localhost:8080)
+
+---
 
 ### Prerequisites
 
@@ -148,32 +203,21 @@ aic-smb-copilot/
 - PostgreSQL 15+
 - Redis 7+
 
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/your-org/aic-smb-copilot.git
-cd aic-smb-copilot
-
-# Install dependencies
-pnpm install
-
-# Set up local environment
-pnpm local:setup
-
-# Start development services
-pnpm local:start
-
-# Run database migrations
-pnpm db:migrate
-
-# Seed development data
-pnpm db:seed
-```
 
 ### Development
 
+To run the app in a full development environment using VS Code Dev Containers:
+
+1. Install Docker Desktop.
+2. Install the Dev Containers extension in VS Code.
+3. Reopen the project in devcontainer (will auto-install tools and environments).
+
+### Commands:
+
 ```bash
+# Install dependencies
+npm install && pip install -r requirements.txt
+
 # Start all applications and services in development mode
 pnpm dev
 
@@ -189,15 +233,33 @@ pnpm lint
 
 # Type checking
 pnpm type-check
+
+# Run API
+pnpm --workspace apps/api dev
+
+# Run Web
+pnpm --workspace apps/web dev
+
+# Run Python workers
+python apps/workers/main.py
 ```
 
+---
+
 ## 📚 Documentation
+
+Relevant guides and reference documents live in `/docs`:
 
 - [Development Guide](./docs/DEVELOPMENT.md)
 - [Architecture Overview](./docs/ARCHITECTURE.md)
 - [API Documentation](./docs/API.md)
 - [Deployment Guide](./docs/DEPLOYMENT.md)
 - [Contributing Guidelines](./CONTRIBUTING.md)
+- [Architecture Overview](./docs/ARCHITECTURE_OVERVIEW.md)
+- [SRS Summary](./docs/SOFTWARE_REQUIREMENTS_SPECIFICATION_SUMMARY.md)
+- [Dev Environment Guide](./docs/DEV_ENVIRONMENT.md)
+
+---
 
 ## 🧪 Testing
 
@@ -306,9 +368,25 @@ We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTIN
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## 🧰 Tech Stack
+
+| Layer         | Technology                         |
+| ------------- | ---------------------------------- |
+| Backend       | Node.js + TypeScript (NestJS)      |
+| Frontend      | React + TypeScript (Next.js)       |
+| Workflows     | Python 3.11                        |
+| Vector DB     | Qdrant (Rust/HTTP-based)           |
+| Infra as Code | Terraform                          |
+| Deployment    | Kubernetes (K8s) + Helm            |
+| Observability | OpenTelemetry, Prometheus, Grafana |
+
+---
+
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is currently under a **proprietary license** and not open for public redistribution.
+
+> ⚠️ Note: The licensing model is subject to change based on business and legal review. Future open-sourcing is possible.
 
 ## 🙏 Acknowledgments
 
@@ -322,6 +400,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 📧 Email: support@aic-copilot.com
 - 💬 Discord: [Join our community](https://discord.gg/aic-copilot)
 - 📖 Docs: [docs.aic-copilot.com](https://docs.aic-copilot.com)
+
+For support or commercial licensing, contact: **[support@yourcompany.com](mailto:support@yourcompany.com)**
+
+Internal collaboration? Join our Slack channel: `#copilot-dev`
+
+```
 
 ## 🗺️ Roadmap
 

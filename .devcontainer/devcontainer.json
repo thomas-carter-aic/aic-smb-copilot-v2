@@ -1,0 +1,75 @@
+{
+  //====================================================
+  // VS Code Dev Container for aic-smb-copilot-v2
+  //====================================================
+
+  "name": "aic-smb-copilot-v2-dev",
+  "dockerFile": "Dockerfile",
+  "context": "..",
+  "remoteUser": "vscode",
+
+  // Build arguments for Dockerfile
+  "build": {
+    "args": {
+      "VARIANT": "alpine"
+    }
+  },
+
+  // Mounts
+  "mounts": [
+    "source=aic_smb_copilot_v2_node_modules,target=/workspace/node_modules,type=volume",
+    "source=aic_smb_copilot_v2_python_deps,target=/workspace/.venv,type=volume"
+  ],
+
+  // Extensions to install automatically
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "ms-python.python",
+        "hashicorp.terraform",
+        "ms-azuretools.vscode-docker",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  },
+
+  // Ports to forward from container
+  "forwardPorts": [
+    3000, // Next.js
+    8080, // API
+    5432, // PostgreSQL
+    6333, // Qdrant
+    5678  // Python debug
+  ],
+
+  // Features to include (optional)
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "1.5"
+    }
+  },
+
+  // Set environment variables
+  "containerEnv": {
+    "NODE_ENV": "development",
+    "PYTHONUNBUFFERED": "1",
+    "COMPOSE_PROJECT_NAME": "aic_smb_copilot_v2"
+  },
+
+  // (Optional) Docker Compose integration for services
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "api",
+
+  // Initialize repo
+  "postCreateCommand": "npm install && pip install -r apps/workers/requirements.txt",
+
+  // Automatically run init script
+  "postStartCommand": "echo 'Devcontainer ready 🎉!'"
+}

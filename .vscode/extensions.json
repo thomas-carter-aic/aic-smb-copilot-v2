@@ -1,0 +1,42 @@
+{
+  //====================================================
+  // VS Code Extensions Recommendations for this project
+  //====================================================
+
+  "recommendations": [
+    // 🌐 Core Dev Tools
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "ms-python.python",
+    "ms-python.black-formatter",
+    "ms-toolsai.jupyter",
+    "streetsidesoftware.code-spell-checker",
+
+    // 🐳 DevOps & Containerization
+    "ms-azuretools.vscode-docker",
+    "hashicorp.terraform",
+    "redhat.vscode-yaml",
+    "eamodio.gitlens",
+    "ms-vscode-remote.remote-containers",
+
+    // 🧠 AI Support (optional)
+    "github.copilot",
+    "tabnine.tabnine-vscode",
+
+    // 🔍 Observability & Docs
+    "bierner.markdown-preview-github-styles",
+    "yzhang.markdown-all-in-one",
+
+    // 🧬 Frontend Development
+    "bradlc.vscode-tailwindcss",
+    "dsznajder.es7-react-js-snippets",
+
+    // 🚀 Git & Productivity
+    "codezombiech.gitignore",
+    "gruntfuggly.todo-tree",
+
+    // 🛠️ Misc
+    "visualstudioexptteam.vscodeintellicode",
+    "charliermarsh.ruff"
+  ]
+}
