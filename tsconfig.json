@@ -1,0 +1,36 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "composite": true
+  },
+  "files": [],
+  "references": [
+    { "path": "./packages/types" },
+    { "path": "./packages/constants" },
+    { "path": "./packages/config" },
+    { "path": "./packages/utils" },
+    { "path": "./packages/validation" },
+    { "path": "./packages/database" },
+    { "path": "./packages/auth" },
+    { "path": "./packages/logger" },
+    { "path": "./packages/redis" },
+    { "path": "./packages/storage" },
+    { "path": "./packages/email" },
+    { "path": "./packages/analytics" },
+    { "path": "./packages/testing" },
+    { "path": "./packages/ui-components" },
+    { "path": "./services/auth-service" },
+    { "path": "./services/api-gateway" },
+    { "path": "./services/document-service" },
+    { "path": "./services/workflow-engine" },
+    { "path": "./services/integration-service" },
+    { "path": "./services/subscription-service" },
+    { "path": "./services/notification-service" },
+    { "path": "./services/analytics-service" },
+    { "path": "./services/orchestration-service" },
+    { "path": "./apps/web" },
+    { "path": "./apps/admin-dashboard" },
+    { "path": "./apps/cli" }
+  ]
+}
