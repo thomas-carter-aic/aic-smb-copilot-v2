@@ -1,0 +1,283 @@
+"""
+GraphQL Schema for aic-smb-copilot-v2
+Service supports hybrid REST + GraphQL API exposed through NestJS
+"""
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+# ========================================================
+# ROOT TYPES
+# ========================================================
+
+type Query {
+  me: User!
+  tenant(id: ID!): Tenant
+  tenants(page: Int, limit: Int): TenantConnection!
+  documents(tenantId: ID!, page: Int, limit: Int): DocumentConnection!
+  workflows(tenantId: ID!, page: Int, limit: Int): WorkflowConnection!
+  workflow(id: ID!): Workflow
+  searchSemantic(input: SemanticSearchInput!): [SemanticSearchResult!]!
+}
+
+type Mutation {
+  login(input: LoginInput!): AuthPayload!
+  logout: Boolean!
+  
+  createTenant(input: TenantCreateInput!): Tenant!
+  updateTenant(id: ID!, input: TenantUpdateInput!): Tenant!
+  
+  createUser(input: UserCreateInput!): User!
+  updateUser(id: ID!, input: UserUpdateInput!): User!
+  deactivateUser(id: ID!): Boolean!
+
+  uploadDocument(input: DocumentUploadInput!): Document!
+  deleteDocument(id: ID!): Boolean!
+
+  createWorkflow(input: WorkflowCreateInput!): Workflow!
+  updateWorkflow(id: ID!, input: WorkflowUpdateInput!): Workflow!
+  archiveWorkflow(id: ID!): Boolean!
+  runWorkflow(id: ID!, input: WorkflowRunInput!): WorkflowRun!
+}
+
+type Subscription {
+  workflowRunStatus(runId: ID!): WorkflowRun!
+}
+
+# ========================================================
+# AUTHENTICATION
+# ========================================================
+
+input LoginInput {
+  email: String!
+  password: String
+  magicLink: Boolean
+}
+
+type AuthPayload {
+  accessToken: String!
+  refreshToken: String!
+  user: User!
+}
+
+# ========================================================
+# ENTITIES
+# ========================================================
+
+type Tenant {
+  id: ID!
+  name: String!
+  slug: String
+  status: TenantStatus!
+  plan: Plan!
+  features: [String!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  users(page: Int, limit: Int): UserConnection!
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+type Plan {
+  name: String!
+  tier: PlanTier!
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+input TenantCreateInput {
+  name: String!
+  slug: String
+  plan: PlanTier = FREE
+}
+
+input TenantUpdateInput {
+  name: String
+  status: TenantStatus
+  plan: PlanTier
+}
+
+type User {
+  id: ID!
+  email: String!
+  displayName: String
+  roles: [String!]!
+  pictureUrl: String
+  tenant: Tenant!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input UserCreateInput {
+  email: String!
+  displayName: String
+  roles: [String!]!
+  tenantId: ID!
+}
+
+input UserUpdateInput {
+  displayName: String
+  roles: [String!]
+}
+
+type Document {
+  id: ID!
+  tenantId: ID!
+  uri: String!
+  mimeType: String
+  sizeBytes: Int
+  metadata: JSON
+  status: DocumentStatus!
+  createdAt: DateTime!
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+input DocumentUploadInput {
+  tenantId: ID!
+  fileUri: String!
+  mimeType: String
+  metadata: JSON
+}
+
+type Workflow {
+  id: ID!
+  name: String!
+  description: String
+  version: String
+  status: WorkflowStatus!
+  steps: [WorkflowStep!]!
+  createdBy: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum WorkflowStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+type WorkflowStep {
+  id: ID!
+  type: WorkflowStepType!
+  config: JSON
+}
+
+enum WorkflowStepType {
+  INGEST
+  TRANSFORM
+  CALL_LLM
+  SEARCH
+  HTTP_REQUEST
+  WEBHOOK
+  DECISION
+}
+
+input WorkflowCreateInput {
+  tenantId: ID!
+  name: String!
+  description: String
+  steps: [WorkflowStepInput!]!
+}
+
+input WorkflowStepInput {
+  type: WorkflowStepType!
+  config: JSON
+}
+
+input WorkflowUpdateInput {
+  name: String
+  description: String
+  status: WorkflowStatus
+  steps: [WorkflowStepInput!]
+}
+
+type WorkflowRun {
+  id: ID!
+  workflowId: ID!
+  status: WorkflowRunStatus!
+  startedAt: DateTime
+  finishedAt: DateTime
+  output: JSON
+  error: JSON
+}
+
+enum WorkflowRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+input WorkflowRunInput {
+  input: JSON
+}
+
+# ========================================================
+# SEARCH
+# ========================================================
+
+input SemanticSearchInput {
+  query: String!
+  tenantId: ID!
+  topK: Int = 5
+}
+
+type SemanticSearchResult {
+  documentId: ID!
+  score: Float!
+  chunk: SemanticChunk!
+}
+
+type SemanticChunk {
+  text: String!
+  page: Int
+  metadata: JSON
+}
+
+# ========================================================
+# PAGINATION & CONNECTION PATTERN
+# ========================================================
+
+type TenantConnection {
+  nodes: [Tenant!]!
+  totalCount: Int!
+}
+
+type UserConnection {
+  nodes: [User!]!
+  totalCount: Int!
+}
+
+type DocumentConnection {
+  nodes: [Document!]!
+  totalCount: Int!
+}
+
+type WorkflowConnection {
+  nodes: [Workflow!]!
+  totalCount: Int!
+}
+
+# ========================================================
+# SCALARS
+# ========================================================
+
+scalar DateTime
+scalar JSON

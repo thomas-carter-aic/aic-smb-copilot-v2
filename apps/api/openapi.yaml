@@ -1,0 +1,909 @@
+openapi: 3.1.0
+info:
+  title: aic-smb-copilot-v2 REST API
+  version: 0.1.0
+  description: >
+    Hybrid platform API for SMB copilots. This spec covers REST endpoints only.
+    GraphQL is defined separately in `graphql/schema.graphql`.
+  contact:
+    name: Platform Team
+    email: support@yourcompany.com
+servers:
+  - url: http://localhost:8080
+    description: Local Dev
+  - url: https://api.{region}.copilot.example.com
+    description: Production (regionalized)
+tags:
+  - name: auth
+  - name: users
+  - name: tenants
+  - name: workflows
+  - name: documents
+  - name: search
+  - name: billing
+  - name: observability
+  - name: admin
+  - name: system
+
+x-api-lifecycle:
+  stability: experimental
+  deprecationPolicy: semver
+
+paths:
+  /health:
+    get:
+      tags: [system]
+      summary: Liveness/Readiness probe
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Login with credentials (passwordless optional)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Authenticated
+          headers:
+            X-RateLimit-Limit: { $ref: "#/components/headers/RateLimit-Limit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimit-Remaining" }
+            X-RateLimit-Reset: { $ref: "#/components/headers/RateLimit-Reset" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Refresh access token
+      security: [] # public with refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: New tokens
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Invalidate session
+      security:
+        - bearerAuth: []
+      responses:
+        "204": { description: Logged out }
+
+  /auth/oauth/{provider}/callback:
+    post:
+      tags: [auth]
+      summary: OAuth callback
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema:
+            type: string
+            enum: [google, github, microsoft]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string }
+                state: { type: string }
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+
+  /me:
+    get:
+      tags: [users]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /tenants:
+    get:
+      tags: [tenants]
+      summary: List tenants (admin or super-admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: Tenants
+          headers:
+            X-Total-Count: { $ref: "#/components/headers/Total-Count" }
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Tenant" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [tenants]
+      summary: Create tenant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TenantCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tenant" }
+
+  /tenants/{tenantId}:
+    parameters:
+      - $ref: "#/components/parameters/tenantId"
+    get:
+      tags: [tenants]
+      summary: Get tenant by id
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Tenant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tenant" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [tenants]
+      summary: Update tenant
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TenantUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tenant" }
+    delete:
+      tags: [tenants]
+      summary: Archive tenant
+      security:
+        - bearerAuth: []
+      responses:
+        "204": { description: Archived }
+
+  /tenants/{tenantId}/users:
+    parameters:
+      - $ref: "#/components/parameters/tenantId"
+    get:
+      tags: [users]
+      summary: List users in tenant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: Users
+          headers:
+            X-Total-Count: { $ref: "#/components/headers/Total-Count" }
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/User" }
+    post:
+      tags: [users]
+      summary: Invite/create user in tenant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+
+  /users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/userId"
+    get:
+      tags: [users]
+      summary: Get user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [users]
+      summary: Update user
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+    delete:
+      tags: [users]
+      summary: Deactivate user
+      security:
+        - bearerAuth: []
+      responses:
+        "204": { description: Deactivated }
+
+  /rbac/roles:
+    get:
+      tags: [admin]
+      summary: List roles
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Role" }
+    post:
+      tags: [admin]
+      summary: Create role
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Role" }
+
+  /rbac/policies:
+    get:
+      tags: [admin]
+      summary: List policies
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Policy" }
+
+  /documents:
+    get:
+      tags: [documents]
+      summary: List indexed documents
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/limit"
+        - in: query
+          name: tenantId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Documents
+          headers:
+            X-Total-Count: { $ref: "#/components/headers/Total-Count" }
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Document" }
+    post:
+      tags: [documents]
+      summary: Upload or register a document for indexing
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                metadata:
+                  type: string
+                  description: JSON string for metadata
+      responses:
+        "202":
+          description: Accepted for processing
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentIngestResponse" }
+
+  /documents/{documentId}:
+    parameters:
+      - $ref: "#/components/parameters/documentId"
+    get:
+      tags: [documents]
+      summary: Get a document by id
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [documents]
+      summary: Delete/forget a document (GDPR)
+      security:
+        - bearerAuth: []
+      responses:
+        "204": { description: Deleted }
+
+  /search/semantic:
+    post:
+      tags: [search]
+      summary: Semantic search over tenant knowledge
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SemanticSearchRequest" }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SemanticSearchResponse" }
+
+  /workflows:
+    get:
+      tags: [workflows]
+      summary: List workflows
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: Workflows
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Workflow" }
+    post:
+      tags: [workflows]
+      summary: Create workflow definition
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkflowCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workflow" }
+
+  /workflows/{workflowId}:
+    parameters:
+      - $ref: "#/components/parameters/workflowId"
+    get:
+      tags: [workflows]
+      summary: Get workflow
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Workflow
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workflow" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [workflows]
+      summary: Update workflow
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkflowUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workflow" }
+    delete:
+      tags: [workflows]
+      summary: Archive workflow
+      security:
+        - bearerAuth: []
+      responses:
+        "204": { description: Archived }
+
+  /workflows/{workflowId}/runs:
+    post:
+      tags: [workflows]
+      summary: Trigger a workflow run
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/workflowId"
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkflowRunRequest" }
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowRun" }
+
+  /runs/{runId}:
+    parameters:
+      - $ref: "#/components/parameters/runId"
+    get:
+      tags: [workflows]
+      summary: Get workflow run status
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Run
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowRun" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /billing/portal-session:
+    post:
+      tags: [billing]
+      summary: Create Stripe customer portal session
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Session URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string, format: uri }
+
+  /billing/webhook:
+    post:
+      tags: [billing]
+      summary: Stripe webhook receiver
+      security: [] # Stripe signature verified separately
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200": { description: OK }
+
+  /metrics:
+    get:
+      tags: [observability]
+      summary: Prometheus metrics scrape endpoint
+      security: [] # internal or basic auth via ingress
+      responses:
+        "200":
+          description: Prometheus format
+          content:
+            text/plain:
+              schema: { type: string }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Send a JWT access token as `Authorization: Bearer <token>`.
+
+  headers:
+    RateLimit-Limit:
+      description: The number of allowed requests in the current period
+      schema: { type: integer }
+    RateLimit-Remaining:
+      description: The number of remaining requests in the current period
+      schema: { type: integer }
+    RateLimit-Reset:
+      description: The number of seconds until the rate limit resets
+      schema: { type: integer }
+    Total-Count:
+      description: Total items available for the current list resource
+      schema: { type: integer }
+
+  parameters:
+    page:
+      in: query
+      name: page
+      schema: { type: integer, minimum: 1, default: 1 }
+    limit:
+      in: query
+      name: limit
+      schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+    tenantId:
+      in: path
+      name: tenantId
+      required: true
+      schema: { type: string }
+    userId:
+      in: path
+      name: userId
+      required: true
+      schema: { type: string }
+    documentId:
+      in: path
+      name: documentId
+      required: true
+      schema: { type: string }
+    workflowId:
+      in: path
+      name: workflowId
+      required: true
+      schema: { type: string }
+    runId:
+      in: path
+      name: runId
+      required: true
+      schema: { type: string }
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Health:
+      type: object
+      properties:
+        status: { type: string, enum: [ok] }
+        uptimeSec: { type: number }
+
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details:
+          type: object
+          additionalProperties: true
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        tokenType: { type: string, enum: [Bearer] }
+        expiresIn: { type: integer }
+
+    LoginRequest:
+      type: object
+      oneOf:
+        - required: [email, password]
+          properties:
+            email: { type: string, format: email }
+            password: { type: string, minLength: 8 }
+        - required: [email, magicLink]
+          properties:
+            email: { type: string, format: email }
+            magicLink: { type: boolean, const: true }
+      examples:
+        - email: dev@local.test
+          password: devpass123
+
+    Tenant:
+      type: object
+      required: [id, name, status, createdAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        status: { type: string, enum: [active, suspended, archived] }
+        settings:
+          type: object
+          properties:
+            plan: { type: string, enum: [free, pro, enterprise] }
+            features:
+              type: array
+              items: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    TenantCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        settings:
+          type: object
+          properties:
+            plan: { type: string, enum: [free, pro, enterprise], default: free }
+
+    TenantUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        status: { type: string, enum: [active, suspended, archived] }
+        settings:
+          type: object
+          additionalProperties: true
+
+    User:
+      type: object
+      required: [id, email, roles, tenantId]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        tenantId: { type: string }
+        roles:
+          type: array
+          items: { type: string }
+        pictureUrl: { type: string, format: uri }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UserCreate:
+      type: object
+      required: [email, roles]
+      properties:
+        email: { type: string, format: email }
+        roles:
+          type: array
+          items: { type: string }
+        displayName: { type: string }
+
+    UserUpdate:
+      type: object
+      properties:
+        displayName: { type: string }
+        roles:
+          type: array
+          items: { type: string }
+
+    Role:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+
+    RoleCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+
+    Policy:
+      type: object
+      properties:
+        id: { type: string }
+        effect: { type: string, enum: [allow, deny] }
+        action:
+          type: array
+          items: { type: string }
+        resource:
+          type: array
+          items: { type: string }
+        condition:
+          type: object
+          additionalProperties: true
+
+    Document:
+      type: object
+      required: [id, tenantId, uri, status]
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        uri: { type: string, description: "Object store URI or internal ref" }
+        mimeType: { type: string }
+        sizeBytes: { type: integer }
+        metadata:
+          type: object
+          additionalProperties: true
+        status: { type: string, enum: [pending, processing, ready, failed] }
+        createdAt: { type: string, format: date-time }
+
+    DocumentIngestResponse:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [pending, processing] }
+        estimatedReadySec: { type: integer }
+
+    SemanticSearchRequest:
+      type: object
+      required: [query, tenantId]
+      properties:
+        query: { type: string }
+        tenantId: { type: string }
+        topK: { type: integer, default: 5, minimum: 1, maximum: 50 }
+        filters:
+          type: object
+          additionalProperties: true
+
+    SemanticSearchResponse:
+      type: object
+      properties:
+        queryVectorDims: { type: integer }
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              documentId: { type: string }
+              score: { type: number }
+              chunk:
+                type: object
+                properties:
+                  text: { type: string }
+                  page: { type: integer }
+                  metadata:
+                    type: object
+                    additionalProperties: true
+
+    Workflow:
+      type: object
+      required: [id, name, steps, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        version: { type: string }
+        status: { type: string, enum: [active, archived] }
+        steps:
+          type: array
+          items:
+            type: object
+            required: [type]
+            properties:
+              id: { type: string }
+              type:
+                type: string
+                enum: [ingest, transform, call_llm, search, http_request, webhook, decision]
+              config:
+                type: object
+                additionalProperties: true
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    WorkflowCreate:
+      type: object
+      required: [name, steps]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/Workflow/properties/steps/items" }
+
+    WorkflowUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [active, archived] }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/Workflow/properties/steps/items" }
+
+    WorkflowRun:
+      type: object
+      required: [id, workflowId, status]
+      properties:
+        id: { type: string }
+        workflowId: { type: string }
+        status: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        output:
+          type: object
+          additionalProperties: true
+        error:
+          type: object
+          additionalProperties: true
+
+    WorkflowRunRequest:
+      type: object
+      properties:
+        input:
+          type: object
+          additionalProperties: true
+
+security:
+  - bearerAuth: []

@@ -33,7 +33,7 @@ Key directories:
 | `/apps/workers/` | Python-based workflow and AI processor |
 | `/packages/vector-client/` | Qdrant wrapper for semantic search |
 | `/infra/terraform/` | Cloud configuration (IaC) |
-| `/infra/k8s/` | Kubernetes manifests + Helm charts |
+| `/infra/kubernetes/` | Kubernetes manifests + Helm charts |
 | `/docs/` | Specifications, diagrams, and reference |
 
 ---

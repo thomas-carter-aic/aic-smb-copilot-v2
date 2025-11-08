@@ -1,0 +1,194 @@
+// =====================================================
+// aic-smb-copilot-v2 — Prisma schema (PostgreSQL)
+// Local-first (Docker) → cloud-agnostic later
+// Vector chunks live in Qdrant; we persist metadata only
+//
+// This schema models multi-tenant core entities and keeps vector chunks in 
+// Qdrant (not in SQL). It’s optimized for PostgreSQL locally (Docker Compose) 
+// and portable for managed Postgres later. Includes enums, relations, 
+// soft-delete flags, and useful indexes.
+//
+// Notes & Rationale
+//    * Soft deletes (deletedAt) for safer SaaS operations.
+//    * JSON fields for steps, metadata, features to allow flexible evolution 
+//      without churn.
+//    * Unique (tenantId, uri) to prevent duplicate doc registration.
+//    * Indexes chosen for common queries (by tenant, status, recency).
+//
+// =====================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Common enums
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum WorkflowStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum WorkflowRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+// -----------------------------
+// Tenant & User (RBAC-ready)
+// -----------------------------
+model Tenant {
+  id         String   @id @default(uuid())
+  name       String
+  slug       String?  @unique
+  status     TenantStatus @default(ACTIVE)
+  plan       PlanTier @default(FREE)
+  features   Json?        // feature flags at tenant level
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  users      User[]
+  documents  Document[]
+  workflows  Workflow[]
+
+  @@index([status])
+  @@index([plan])
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  displayName String?
+  pictureUrl  String?
+  // NOTE: roles kept as string array for simplicity; for granular permissions,
+  // add Role/Policy tables later and map via many-to-many.
+  roles       String[] @default([])
+
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([tenantId])
+  @@index([tenantId, email])
+}
+
+// -----------------------------
+// Knowledge base (metadata only)
+// Actual chunks/embeddings are in Qdrant
+// -----------------------------
+model Document {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  uri        String            // object storage URI or pointer
+  mimeType   String?
+  sizeBytes  Int?
+  metadata   Json?
+  // status mirrors async ingestion pipeline
+  status     String   @default("PENDING") // PENDING|PROCESSING|READY|FAILED
+
+  // optional external reference to Qdrant collection/key space
+  vectorRef  String?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@unique([tenantId, uri]) // same tenant shouldn't register identical URI twice
+}
+
+// -----------------------------
+// Workflows & Runs
+// -----------------------------
+model Workflow {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  version     String?  // semantic version if you version definitions
+  status      WorkflowStatus @default(ACTIVE)
+
+  // steps are stored as JSON schema (type, config)
+  steps       Json
+
+  createdBy   String?  // userId (string to avoid FK churn if user deleted)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  runs        WorkflowRun[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, name])
+}
+
+model WorkflowRun {
+  id          String   @id @default(uuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  status      WorkflowRunStatus @default(QUEUED)
+  input       Json?
+  output      Json?
+  error       Json?
+
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  createdAt   DateTime @default(now())
+
+  @@index([workflowId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// -----------------------------
+// Optional: Role/Policy scaffolding (future expansion)
+// Keep commented until you need fine-grained ABAC/OPA-like policies
+// -----------------------------
+// model Role {
+//   id       String  @id @default(uuid())
+//   name     String  @unique
+//   tenantId String?
+//   tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+//   // permissions: string[] or join table RolePermission
+//   createdAt DateTime @default(now())
+// }
+//
+// model RoleAssignment {
+//   id      String @id @default(uuid())
+//   userId  String
+//   user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+//   roleId  String
+//   role    Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+//   createdAt DateTime @default(now())
+//   @@unique([userId, roleId])
+// }
